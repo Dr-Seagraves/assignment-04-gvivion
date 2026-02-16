@@ -122,10 +122,9 @@ def estimate_regression(df: pd.DataFrame, x_var: str):
     statsmodels.regression.linear_model.RegressionResultsWrapper
         Fitted regression model.
     """
-    # TODO: Use statsmodels.formula.api.ols to estimate ret ~ x_var
-    # Hint: model = ols(f"ret ~ {x_var}", data=df).fit()
-    # return model
-    raise NotImplementedError("Implement the regression estimation here")
+    # Use statsmodels.formula.api.ols to estimate ret ~ x_var
+    model = ols(f"ret ~ {x_var}", data=df).fit()
+    return model
 
 
 def save_regression_summary(model, output_path: Path) -> None:
@@ -133,9 +132,9 @@ def save_regression_summary(model, output_path: Path) -> None:
     Save the regression summary to a text file.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    # TODO: Write str(model.summary()) to the output file
+    # Write str(model.summary()) to the output file
     with open(output_path, "w") as f:
-        pass  # TODO
+        f.write(str(model.summary()))
 
 
 def plot_scatter_with_regression(
@@ -151,14 +150,37 @@ def plot_scatter_with_regression(
     - Zoom axis limits to central data (e.g., 2nd–98th percentiles) so the slope is easier to see
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    # TODO: Create fig, ax with plt.subplots(figsize=(10, 6))
-    # TODO: Filter to rows with valid x_var and ret
-    # TODO: Scatter plot
-    # TODO: Overlay regression line (use model.params['Intercept'] and model.params[x_var])
-    # TODO: Set axis limits to zoom on central data (e.g., percentiles 2–98)
-    # TODO: Add title (include R²), xlabel, ylabel="Annual Return", legend
-    # TODO: Save with plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    pass  # TODO
+    # Create fig, ax with plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Filter to rows with valid x_var and ret
+    plot_df = df[[x_var, 'ret']].dropna()
+    
+    # Scatter plot
+    ax.scatter(plot_df[x_var], plot_df['ret'], alpha=0.5, label='Data')
+    
+    # Overlay regression line (use model.params['Intercept'] and model.params[x_var])
+    x_range = np.linspace(plot_df[x_var].min(), plot_df[x_var].max(), 100)
+    y_pred = model.params['Intercept'] + model.params[x_var] * x_range
+    ax.plot(x_range, y_pred, 'r-', linewidth=2, label='Regression Line')
+    
+    # Set axis limits to zoom on central data (e.g., percentiles 2–98)
+    x_min, x_max = plot_df[x_var].quantile([0.02, 0.98])
+    y_min, y_max = plot_df['ret'].quantile([0.02, 0.98])
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    
+    # Add title (include R²), xlabel, ylabel="Annual Return", legend
+    r_squared = model.rsquared
+    ax.set_title(f"{title}\nR² = {r_squared:.4f}")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Annual Return")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    # Save with plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
 
 
 def print_key_results(model, x_var: str) -> None:
@@ -168,9 +190,32 @@ def print_key_results(model, x_var: str) -> None:
     print("\n" + "=" * 60)
     print(f"ret (annual) ~ {x_var.upper()}")
     print("=" * 60)
-    # TODO: Print intercept (β₀), slope (β₁), standard errors, t-stats, p-values
-    # TODO: Print R², Adj R², N
-    # TODO: Print whether slope is positive/negative and significant at 5%
+    
+    # Print intercept (β₀), slope (β₁), standard errors, t-stats, p-values
+    intercept = model.params['Intercept']
+    slope = model.params[x_var]
+    intercept_se = model.bse['Intercept']
+    slope_se = model.bse[x_var]
+    intercept_t = model.tvalues['Intercept']
+    slope_t = model.tvalues[x_var]
+    intercept_p = model.pvalues['Intercept']
+    slope_p = model.pvalues[x_var]
+    
+    print(f"Intercept (β₀): {intercept:.6f}")
+    print(f"  Std Error: {intercept_se:.6f}, t-stat: {intercept_t:.3f}, p-value: {intercept_p:.4f}")
+    print(f"Slope (β₁): {slope:.6f}")
+    print(f"  Std Error: {slope_se:.6f}, t-stat: {slope_t:.3f}, p-value: {slope_p:.4f}")
+    
+    # Print R², Adj R², N
+    print(f"R²: {model.rsquared:.4f}")
+    print(f"Adj R²: {model.rsquared_adj:.4f}")
+    print(f"N: {int(model.nobs)}")
+    
+    # Print whether slope is positive/negative and significant at 5%
+    direction = "positive" if slope > 0 else "negative"
+    significance = "significant" if slope_p < 0.05 else "not significant"
+    print(f"\nInterpretation: The slope is {direction} and {significance} at the 5% level.")
+    
     print("=" * 60 + "\n")
 
 
